@@ -51,10 +51,40 @@ Selon `HEDGEDOC_AUTH_MODE` :
 | `oidc` | `HEDGEDOC_OIDC_USERNAME`, `HEDGEDOC_OIDC_PASSWORD` (compte IdP **dédié**, pas celui d'une vraie personne), et éventuellement `HEDGEDOC_OIDC_LOGIN_PATH` (défaut `/auth/oauth2`) |
 | `cookie` | `HEDGEDOC_SESSION_COOKIE` (cookie de session déjà valide — surtout utile en debug) |
 
-Voir la docstring de `auth.py` pour le détail de ce que fait réellement le
-mode `oidc` (script de connexion via le formulaire du IdP) et de sa
-fragilité connue (thème de connexion personnalisé, 2FA, actions requises
-sur le compte).
+## Choisir le mode d'auth
+
+Le bon mode dépend de **la façon dont les comptes existent sur
+l'instance cible**, pas du serveur MCP :
+
+- **`local`** — l'instance possède des comptes natifs HedgeDoc
+  (`config.email` / `CMD_EMAIL` activés côté serveur, comptes créés par
+  exemple via `bin/manage_users`). C'est le mode le plus simple : un seul
+  `POST /login`, rien de fragile. **Il ne peut pas authentifier un compte
+  créé par un fournisseur OAuth2/Keycloak** — même avec les bonnes
+  identités, `POST /login` est rejeté.
+
+- **`oidc`** — les utilisateurs de l'instance proviennent d'un IdP
+  externe (ex. Keycloak, `CMD_OAUTH2_*` activés). Le serveur scripte la
+  danse `/auth/oauth2` → page de login Keycloak → callback. Voir la
+  docstring de `auth.py` pour le détail et les limites (thème de login
+  personnalisé, 2FA, actions requises sur le compte).
+
+- **`cookie`** — contournement pour le debug : on fournit directement un
+  `connect.sid` déjà valide (ex. copié d'un navigateur). Le serveur
+  vérifie quand même que le cookie est utilisable via `GET /me`.
+
+**Comment savoir quel mode utiliser sur une instance inconnue ?** Le
+symptôme typique d'un mauvais mode est trompeur : en `local` sur une
+instance Keycloak, le login « réussit » (HTTP 200, cookie posé) mais la
+session est anonyme, et c'est `GET /me` qui renvoie
+`{"status": "forbidden"}` — le serveur MCP le détecte et lève
+`AuthenticationError`, mais si on ne passe pas par le MCP, on peut
+longtemps chercher un problème de credentials. Pour trancher vite :
+- `GET /auth/oauth2` renvoie une redirection vers l'IdP → l'instance est
+  en mode IdP, utiliser `oidc`.
+- `POST /login` avec de bonnes identités renvoie « Invalid email or
+  password » → il n'y a pas de compte local correspondant, utiliser `oidc`.
+- les deux se négocient → `local` est plus simple, l'utiliser.
 
 ## Utilisation avec podman-compose
 
