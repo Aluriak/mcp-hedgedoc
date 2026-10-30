@@ -1,4 +1,4 @@
-# hedgedoc-mcp -- MCP server for a HedgeDoc 1.x instance.
+# mcp-hedgedoc -- MCP server for a HedgeDoc 1.x instance.
 #
 # One image, two variants: HEDGEDOC_READ_ONLY toggles between them at
 # container start, so the same image serves both mcp-hedgedoc-ro and
@@ -21,10 +21,10 @@ RUN pip install --no-cache-dir --root-user-action=ignore /tmp/*.whl && \
 
 # Runs as a non-root user -- nothing here needs root, and there's no
 # reason for a compromised dependency to get more than it needs.
-RUN useradd --system --no-create-home --uid 10001 hedgedoc-mcp
-USER hedgedoc-mcp
+RUN useradd --system --no-create-home --uid 10001 mcp-hedgedoc
+USER mcp-hedgedoc
 
 ENV PYTHONUNBUFFERED=1
 EXPOSE 8000
 
-CMD ["python", "-m", "hedgedoc_mcp"]
+CMD ["python", "-m", "mcp_hedgedoc"]

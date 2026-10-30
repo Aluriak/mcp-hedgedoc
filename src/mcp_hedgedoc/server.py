@@ -22,7 +22,7 @@ from .config import Settings
 
 settings = Settings.from_env()
 mcp = FastMCP(
-    "hedgedoc-mcp",
+    "mcp-hedgedoc",
     instructions=(
         "Reads and creates notes on a HedgeDoc instance, through a "
         "single shared service account -- every action appears under that "

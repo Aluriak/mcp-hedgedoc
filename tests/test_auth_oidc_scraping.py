@@ -1,4 +1,4 @@
-from hedgedoc_mcp.auth import extract_login_form_action
+from mcp_hedgedoc.auth import extract_login_form_action
 
 # A trimmed but structurally faithful fragment of Keycloak's default
 # "keycloak" login theme (login.ftl), the part that actually matters here:

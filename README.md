@@ -69,8 +69,8 @@ Une seule image, les deux variantes changent uniquement `HEDGEDOC_READ_ONLY`
     environment:
       - HEDGEDOC_URL={{ hedgedoc_addr }}
       - HEDGEDOC_AUTH_MODE=local
-      - HEDGEDOC_EMAIL={{ hedgedoc_mcp_bot_email }}
-      - HEDGEDOC_PASSWORD={{ hedgedoc_mcp_bot_password }}
+      - HEDGEDOC_EMAIL={{ mcp_hedgedoc_bot_email }}
+      - HEDGEDOC_PASSWORD={{ mcp_hedgedoc_bot_password }}
       - HEDGEDOC_READ_ONLY={{ 'true' if v == 'ro' else 'false' }}
       - REQUESTS_CA_BUNDLE=/etc/ssl/certs/ca-bundle.crt
     volumes:

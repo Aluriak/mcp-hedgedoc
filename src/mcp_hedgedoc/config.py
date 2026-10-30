@@ -1,4 +1,4 @@
-"""Environment-variable configuration for hedgedoc-mcp.
+"""Environment-variable configuration for mcp-hedgedoc.
 
 Every setting is read once, at process startup, into a frozen `Settings`
 instance. There is no hot-reload: changing an env var means restarting the

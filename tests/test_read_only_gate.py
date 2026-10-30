@@ -16,7 +16,7 @@ async def _fresh_server_module(read_only: bool):
     os.environ["HEDGEDOC_PASSWORD"] = "secret"
     os.environ["HEDGEDOC_READ_ONLY"] = "true" if read_only else "false"
 
-    import hedgedoc_mcp.server as server_module
+    import mcp_hedgedoc.server as server_module
 
     importlib.reload(server_module)
     # Mirrors exactly what __main__.main() does before mcp.run() --

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Smoke-tests a built hedgedoc-mcp image: runs it in read-only mode
+# Smoke-tests a built mcp-hedgedoc image: runs it in read-only mode
 # against a bogus HEDGEDOC_URL (never touches the real instance) and
 # checks that the read-only gate genuinely holds.
 #
@@ -7,7 +7,7 @@
 set -euo pipefail
 
 IMAGE="${1:?Usage: scripts/smoke_test.sh <image-ref>}"
-CONTAINER_NAME="hedgedoc-mcp-smoketest-$$"
+CONTAINER_NAME="mcp-hedgedoc-smoketest-$$"
 HOST_PORT="18765"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 

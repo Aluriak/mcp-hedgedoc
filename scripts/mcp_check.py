@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Connects to a running hedgedoc-mcp instance and checks that the
+"""Connects to a running mcp-hedgedoc instance and checks that the
 read-only gate genuinely holds: only the six read tools are listed, and
 create_note is rejected at call time, not merely hidden.
 

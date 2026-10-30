@@ -1,6 +1,6 @@
 import pytest
 
-from hedgedoc_mcp.config import ConfigError, Settings
+from mcp_hedgedoc.config import ConfigError, Settings
 
 
 def test_requires_hedgedoc_url(monkeypatch):

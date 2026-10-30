@@ -1,14 +1,14 @@
 import pytest
 import responses
 
-from hedgedoc_mcp.client import (
+from mcp_hedgedoc.client import (
     HedgeDocClient,
     NoteAlreadyExistsError,
     NoteNotFoundError,
     PermissionDeniedError,
     SessionExpiredError,
 )
-from hedgedoc_mcp.config import Settings
+from mcp_hedgedoc.config import Settings
 
 BASE = "https://pad.example.org"
 
