@@ -1,4 +1,4 @@
-# hedgedoc-mcp
+# mcp-hedgedoc
 
 Serveur MCP pour HedgeDoc 1.x — lit et crée des notes via un compte de
 service unique, avec un vrai mode lecture seule pour la paire de
@@ -64,7 +64,7 @@ Une seule image, les deux variantes changent uniquement `HEDGEDOC_READ_ONLY`
 ```yaml
 {% for v in librechat_mcp_servers.hedgedoc.variants %}
   mcp-hedgedoc-{{ v }}:
-    image: ghcr.io/votre-org/hedgedoc-mcp:latest
+    image: ghcr.io/votre-org/mcp-hedgedoc:latest
     container_name: mcp-hedgedoc-{{ v }}
     environment:
       - HEDGEDOC_URL={{ hedgedoc_addr }}
@@ -87,15 +87,15 @@ L'image est publiée sur GHCR par la CI GitHub Actions (voir
 la branche par défaut. Pour construire et pousser manuellement :
 
 ```bash
-podman build -t ghcr.io/votre-org/hedgedoc-mcp:latest -f Containerfile .
+podman build -t ghcr.io/votre-org/mcp-hedgedoc:latest -f Containerfile .
 podman login ghcr.io
-podman push ghcr.io/votre-org/hedgedoc-mcp:latest
+podman push ghcr.io/votre-org/mcp-hedgedoc:latest
 ```
 
 ## Vérifier une image après construction
 
 ```bash
-scripts/smoke_test.sh ghcr.io/votre-org/hedgedoc-mcp:latest
+scripts/smoke_test.sh ghcr.io/votre-org/mcp-hedgedoc:latest
 ```
 
 Lance le conteneur en mode lecture seule contre une URL bidon, vérifie que
