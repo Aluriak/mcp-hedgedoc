@@ -1,6 +1,6 @@
 [project]
 name = "mcp-hedgedoc"
-version = "0.1.0"
+version = "1.0.0"
 description = "MCP server for HedgeDoc 1.x -- read notes and create new ones through a single service-account session, with a native read-only mode for the ro/rw variant split."
 readme = "README.md"
 requires-python = ">=3.12"
