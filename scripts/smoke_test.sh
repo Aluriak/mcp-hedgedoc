@@ -18,7 +18,7 @@ trap cleanup EXIT
 
 echo "Starting $IMAGE as $CONTAINER_NAME on port $HOST_PORT (read-only mode, fake HEDGEDOC_URL)..."
 podman run -d --name "$CONTAINER_NAME" \
-  -p "${HOST_PORT}:8000" \
+  -p "${HOST_PORT}:8080" \
   -e HEDGEDOC_URL="http://localhost:1" \
   -e HEDGEDOC_EMAIL="smoketest@example.org" \
   -e HEDGEDOC_PASSWORD="unused" \

@@ -39,7 +39,7 @@ serveur n'implémente pas.
 | `HEDGEDOC_URL` | oui | — | URL de base, ex. `https://hedgedoc.example.org` |
 | `HEDGEDOC_AUTH_MODE` | non | `local` | `local`, `oidc`, ou `cookie` |
 | `HEDGEDOC_READ_ONLY` | non | `false` | `true` pour la variante ro |
-| `MCP_SERVER_PORT` | non | `8000` | Port d'écoute HTTP |
+| `MCP_SERVER_PORT` | non | `8080` | Port d'écoute HTTP |
 | `HEDGEDOC_TIMEOUT_SECONDS` | non | `15` | Timeout des requêtes HTTP |
 | `REQUESTS_CA_BUNDLE` | non | — | CA interne, si nécessaire |
 

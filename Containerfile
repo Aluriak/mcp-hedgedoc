@@ -25,6 +25,6 @@ RUN useradd --system --no-create-home --uid 10001 mcp-hedgedoc
 USER mcp-hedgedoc
 
 ENV PYTHONUNBUFFERED=1
-EXPOSE 8000
+EXPOSE 8080
 
 CMD ["python", "-m", "mcp_hedgedoc"]

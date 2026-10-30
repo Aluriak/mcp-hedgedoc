@@ -122,7 +122,7 @@ class Settings:
             hedgedoc_url=hedgedoc_url,
             auth_mode=auth_mode,
             read_only=_env_bool("HEDGEDOC_READ_ONLY", False),
-            port=_env_int("MCP_SERVER_PORT", 8000),
+            port=_env_int("MCP_SERVER_PORT", 8080),
             timeout_seconds=_env_int("HEDGEDOC_TIMEOUT_SECONDS", 15),
             email=email,
             password=password,

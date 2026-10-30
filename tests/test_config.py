@@ -57,7 +57,7 @@ def test_defaults(monkeypatch):
         monkeypatch.delenv(var, raising=False)
     settings = Settings.from_env()
     assert settings.read_only is False
-    assert settings.port == 8000
+    assert settings.port == 8080
     assert settings.timeout_seconds == 15
 
 
