@@ -20,22 +20,34 @@ against any third-party description of them:
                                      CMD_ALLOW_FREEURL=true server-side to
                                      use a custom alias
 
-There is deliberately no update/delete here: POST /new/{alias} on an
-alias that already has a note returns 409 Conflict (verified against
-HedgeDoc 1.11.1 and 1.12.0 source -- this is not a version-drift issue,
-some other HedgeDoc-MCP projects describe this as an "update" mechanism
-and that description does not match what the code does). Content changes
-only ever happen over HedgeDoc's Socket.IO realtime channel, which this
-client does not implement.
+There is no HTTP update endpoint: POST /new/{alias} on an alias that
+already has a note returns 409 Conflict (verified against HedgeDoc 1.11.1
+and 1.12.0 source -- this is not a version-drift issue, some other
+HedgeDoc-MCP projects describe this as an "update" mechanism and that
+description does not match what the code does). The ONE supported way to
+change an existing note's content is the realtime editor channel, and
+update_note() does exactly that: it speaks the note's Socket.IO
+doc/operation/ack protocol (see realtime.py for the full source-verified
+description) to replace the entire content, then polls GET /download
+until the database catches up -- the server acks once the change is
+applied to the editor's in-memory state, and a separate 1-second flush
+loop persists it a fraction of a second later.
 """
 from __future__ import annotations
 
+import time
+from typing import Callable
 from urllib.parse import quote
 
 import requests
 
 from .auth import login
 from .config import Settings
+from .realtime import (
+    HedgeDocRealtimeClient,
+    RealtimeUpdateError,
+    ReplaceAllProvider,
+)
 
 
 class HedgeDocError(RuntimeError):
@@ -154,3 +166,68 @@ class HedgeDocClient:
         note_url = location if location.startswith("http") else f"{base}{location}"
         note_id = note_url.rstrip("/").rsplit("/", 1)[-1]
         return {"note_id": note_id, "url": note_url}
+
+    def update_note(
+        self,
+        note_id_or_alias: str,
+        new_content: str,
+        *,
+        realtime_factory: "Callable[[], ReplaceAllProvider] | None" = None,
+        verify_deadline: float = 10.0,
+    ) -> dict:
+        """Replace the ENTIRE content of an existing note.
+
+        This is the only supported content-edit path in HedgeDoc 1.x (see
+        the module docstring). It does three things:
+
+          1. Confirms the note exists and is readable via GET /download
+             (this also gives the same permission semantics as the read
+             tools, and fails fast with the same NoteNotFoundError /
+             PermissionDeniedError a plain read would).
+          2. Speaks the note's Socket.IO editor channel to replace the
+             content and wait for the server's ack.
+          3. Polls GET /download until the database has persisted the new
+             content (the ack is in-memory-only; a 1-second flush loop
+             writes it out). Returns once the read-back matches.
+
+        Raises RealtimeUpdateError if the ack never arrives (silent
+        permission refusal or unresponsive server), and PermissionDenied-
+        style errors for the up-front read.
+
+        ``realtime_factory`` and ``verify_deadline`` are injectable for
+        tests; production callers leave them at the defaults.
+        """
+        # 1) The note must exist and be readable under this session first.
+        # read_note() does exactly that and raises the same typed errors.
+        self.read_note(note_id_or_alias)
+
+        # 2) Do the realtime replace-all and get the new revision.
+        if realtime_factory is None:
+            realtime_factory = lambda: HedgeDocRealtimeClient(
+                self._settings.hedgedoc_url, self._session
+            )
+        new_revision = realtime_factory().replace_all(note_id_or_alias, new_content)
+
+        # 3) Wait for the database to catch up, then confirm by reading
+        # back over plain HTTP (the only way to prove persistence).
+        expected = new_content
+        deadline = time.monotonic() + verify_deadline
+        last = None
+        while time.monotonic() < deadline:
+            last = self.read_note(note_id_or_alias)
+            if last == expected:
+                return {
+                    "note_id": note_id_or_alias,
+                    "new_revision": new_revision,
+                    "verified": True,
+                }
+            time.sleep(0.25)
+        raise HedgeDocError(
+            f"The realtime channel acknowledged the update to note "
+            f"{note_id_or_alias!r} (revision {new_revision}), but "
+            f"GET /download still returns the old content after "
+            f"{verify_deadline:.0f}s. The note was changed in the editor "
+            "but the read-back does not yet match -- a concurrent writer "
+            "may have transformed the result, or the instance's persist "
+            "loop is slow. Read the note again to see the current state."
+        )
