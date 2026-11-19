@@ -13,12 +13,14 @@ la personne qui pose la question dans LibreChat. Toute note créée, toute
 action listée dans `/history`, apparaît sous ce compte dans l'historique
 HedgeDoc.
 
-Il n'y a pas d'outil `update_note` ni `delete_note`, et ce n'est pas un
-oubli : `POST /new/{alias}` sur un alias déjà existant renvoie **409
-Conflict** (vérifié sur le code source de HedgeDoc 1.11.1 et 1.12.0,
-identique dans les deux). La modification du contenu d'une note existante
-ne se fait que via le canal Socket.IO temps réel de l'éditeur web, que ce
-serveur n'implémente pas.
+Il n'y a pas d'outil `delete_note`, et pour modifier le contenu d'une
+note existante il faut passer par `update_note`. Explication :
+HedgeDoc 1.x n'a **aucun endpoint HTTP de mise à jour** — `POST
+/new/{alias}` sur un alias déjà existant renvoie **409 Conflict**
+(vérifié sur le code source de HedgeDoc 1.11.1 et 1.12.0, identique dans
+les deux). La modification du contenu ne se fait que via le canal
+Socket.IO temps réel de l'éditeur web ; `update_note` pilote exactement
+ce canal (voir « update_note et le canal temps réel » plus bas).
 
 ## Outils exposés
 
@@ -31,6 +33,7 @@ serveur n'implémente pas.
 | `whoami` | oui | Identité de la session actuelle (toujours le compte de service) |
 | `list_history` | oui | Notes récemment consultées/épinglées par le compte de service |
 | `create_note` | non | Crée une **nouvelle** note (jamais une modification) |
+| `update_note` | non | **Remplace tout le contenu** d'une note existante (via le canal temps réel) |
 
 ## Variables d'environnement
 
@@ -129,9 +132,36 @@ scripts/smoke_test.sh ghcr.io/votre-org/mcp-hedgedoc:latest
 ```
 
 Lance le conteneur en mode lecture seule contre une URL bidon, vérifie que
-les 6 outils de lecture apparaissent et que `create_note` est bien
-rejeté — sans jamais toucher à une vraie instance HedgeDoc. Voir le script
-pour le détail.
+les 6 outils de lecture apparaissent et que `create_note` **et**
+`update_note` sont bien rejetés — sans jamais toucher à une vraie
+instance HedgeDoc. Voir le script pour le détail.
+
+## update_note et le canal temps réel
+
+`update_note` est le seul outil d'écriture qui ne passe pas par HTTP :
+HedgeDoc 1.x n'ayant aucun endpoint de mise à jour, il pilote le canal
+Socket.IO de l'éditeur (protocole vérifié source, HedgeDoc 1.10.8) :
+connexion à l'espace de la note (`?noteId=…` dans le handshake, cookie
+de session transmis en header), réception de l'état `doc`, émission de
+l'opération OT « supprimer tout + insérer le nouveau contenu », attente
+de l'`ack`.
+
+Deux propriétés importantes à connaître :
+
+- **l'`ack` ≠ « sauvegardé en base ».** Le serveur ack dès que
+  l'opération est appliquée en mémoire ; la persistance est faite par une
+  boucle de 1 seconde. C'est pourquoi l'outil **relit la note par HTTP
+  (`GET /download`) en polling** et ne renvoie
+  `verified: true` que quand le contenu lu correspond réellement à la
+  base de données.
+- **les permissions sont appliquées par HedgeDoc, pas ici.** `freely` →
+  tout le monde ; `editable`/`limited` → utilisateur connecté ;
+  `locked`/`private`/`protected` → **propriétaire uniquement**. En cas de
+  refus, HedgeDoc n'envoie ni `ack` ni erreur : l'outil échoue après
+  timeout en le signalant clairement.
+
+L'identité reste celle du compte de service partagé : toute
+modification apparaît sous ce compte dans l'historique HedgeDoc.
 
 ## Tests
 
@@ -140,9 +170,10 @@ pip install -e ".[dev]"
 pytest
 ```
 
-24 tests, tous hors-réseau (mocks HTTP via `responses`, page IdP
-synthétique pour le scraping OIDC) sauf le smoke test du conteneur
-ci-dessus, qui est volontairement séparé du reste.
+44 tests, tous hors-réseau (mocks HTTP via `responses`, page IdP
+synthétique pour le scraping OIDC, et un **serveur Socket.IO réel en
+boucle locale** pour le chemin temps réel d'`update_note`) sauf le smoke
+test du conteneur ci-dessus, qui est volontairement séparé du reste.
 
 ## Voir aussi
 

@@ -3,12 +3,14 @@ import responses
 
 from mcp_hedgedoc.client import (
     HedgeDocClient,
+    HedgeDocError,
     NoteAlreadyExistsError,
     NoteNotFoundError,
     PermissionDeniedError,
     SessionExpiredError,
 )
 from mcp_hedgedoc.config import Settings
+from mcp_hedgedoc.realtime import RealtimeUpdateError
 
 BASE = "https://pad.example.org"
 
@@ -167,3 +169,90 @@ def test_get_note_revisions():
     client = HedgeDocClient(_settings())
     revisions = client.get_note_revisions("my-note")
     assert revisions == [{"time": 1735689600000, "length": 120}]
+
+
+# --- update_note (realtime path, HTTP side tested with a fake realtime) ---
+
+
+class _FakeRealtime:
+    """Stands in for HedgeDocRealtimeClient: records the call, returns a
+    fixed new revision. A raise_on flag simulates the silent-refusal
+    timeout (RealtimeUpdateError)."""
+
+    def __init__(self, new_revision=5, raise_on=None):
+        self.new_revision = new_revision
+        self.raise_on = raise_on
+        self.calls = []
+
+    def replace_all(self, note_id, new_content):
+        self.calls.append((note_id, new_content))
+        if self.raise_on:
+            raise self.raise_on
+        return self.new_revision
+
+
+@responses.activate
+def test_update_note_replaces_content_and_verifies():
+    _mock_login_ok()
+    client = HedgeDocClient(_settings())
+    fake = _FakeRealtime(new_revision=5)
+
+    # 1 pre-read (old content), then the poll sees old once before the
+    # database catches up and returns the new content.
+    responses.add(responses.GET, f"{BASE}/my-note/download", body="# old", status=200)
+    responses.add(responses.GET, f"{BASE}/my-note/download", body="# old", status=200)
+    responses.add(
+        responses.GET, f"{BASE}/my-note/download", body="# brand new", status=200
+    )
+
+    result = client.update_note("my-note", "# brand new", realtime_factory=lambda: fake)
+    assert result == {"note_id": "my-note", "new_revision": 5, "verified": True}
+    assert fake.calls == [("my-note", "# brand new")]
+
+
+@responses.activate
+def test_update_note_fails_fast_when_note_missing():
+    _mock_login_ok()
+    responses.add(responses.GET, f"{BASE}/nope/download", status=404)
+    client = HedgeDocClient(_settings())
+    fake = _FakeRealtime()
+    with pytest.raises(NoteNotFoundError):
+        client.update_note("nope", "x", realtime_factory=lambda: fake)
+    # the realtime path must never have run
+    assert fake.calls == []
+
+
+@responses.activate
+def test_update_note_fails_fast_when_permission_denied():
+    _mock_login_ok()
+    responses.add(responses.GET, f"{BASE}/locked/download", status=403)
+    client = HedgeDocClient(_settings())
+    fake = _FakeRealtime()
+    with pytest.raises(PermissionDeniedError):
+        client.update_note("locked", "x", realtime_factory=lambda: fake)
+    assert fake.calls == []
+
+
+@responses.activate
+def test_update_note_propagates_realtime_error():
+    _mock_login_ok()
+    responses.add(responses.GET, f"{BASE}/my-note/download", body="# old", status=200)
+    client = HedgeDocClient(_settings())
+    fake = _FakeRealtime(raise_on=RealtimeUpdateError("no ack (permission?)"))
+    with pytest.raises(RealtimeUpdateError):
+        client.update_note("my-note", "# new", realtime_factory=lambda: fake)
+
+
+@responses.activate
+def test_update_note_errors_when_persist_never_catches_up():
+    _mock_login_ok()
+    client = HedgeDocClient(_settings())
+    fake = _FakeRealtime(new_revision=5)
+    # pre-read + every poll returns the old content
+    for _ in range(6):
+        responses.add(responses.GET, f"{BASE}/my-note/download", body="# old", status=200)
+    with pytest.raises(HedgeDocError) as exc:
+        client.update_note(
+            "my-note", "# new", realtime_factory=lambda: fake, verify_deadline=0.3
+        )
+    assert "still returns the old content" in str(exc.value)

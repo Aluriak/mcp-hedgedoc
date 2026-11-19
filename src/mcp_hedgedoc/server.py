@@ -24,12 +24,13 @@ settings = Settings.from_env()
 mcp = FastMCP(
     "mcp-hedgedoc",
     instructions=(
-        "Reads and creates notes on a HedgeDoc instance, through a "
-        "single shared service account -- every action appears under that "
+        "Reads, creates, and updates notes on a HedgeDoc instance, through "
+        "a single shared service account -- every action appears under that "
         "account in HedgeDoc's own history, never under the real person's "
-        "identity. There is no tool to modify an existing note's content: "
-        "HedgeDoc 1.x only supports that over its realtime editor, not over "
-        "HTTP."
+        "identity. update_note replaces a note's ENTIRE content over "
+        "HedgeDoc's realtime editor channel (there is no HTTP update "
+        "endpoint); there is no tool for partial/in-place edits and none to "
+        "delete a note."
     ),
 )
 
@@ -73,6 +74,7 @@ _get_note_revision_content = _with_relogin(HedgeDocClient.get_note_revision_cont
 _whoami = _with_relogin(HedgeDocClient.whoami)
 _list_history = _with_relogin(HedgeDocClient.list_history)
 _create_note = _with_relogin(HedgeDocClient.create_note)
+_update_note = _with_relogin(HedgeDocClient.update_note)
 
 
 @mcp.tool(annotations=ToolAnnotations(readOnlyHint=True, idempotentHint=True))
@@ -134,8 +136,45 @@ def create_note(content: str, alias: str | None = None) -> dict:
     CMD_ALLOW_FREEURL=true server-side) -- but if a note already exists at
     that alias, this fails rather than overwriting it: HedgeDoc has no HTTP
     endpoint to modify existing note content, only its realtime editor
-    does. There is no update_note or delete_note tool for the same reason."""
+    does -- that is what update_note drives. There is no delete_note tool
+    at all."""
     return _create_note(content, alias)
+
+
+@mcp.tool(
+    annotations=ToolAnnotations(
+        readOnlyHint=False,
+        destructiveHint=True,
+        idempotentHint=False,
+    )
+)
+def update_note(note_id_or_alias: str, new_content: str) -> dict:
+    """Replace the ENTIRE Markdown content of an EXISTING note.
+
+    HedgeDoc 1.x has no HTTP endpoint for content changes, so this drives
+    the note's Socket.IO realtime editor channel (doc -> operation ->
+    ack) and then reads the note back over HTTP until the new content is
+    confirmed persisted. Use this to update a note; use create_note to
+    make a new one.
+
+    Behaviour and limits, read before calling:
+
+    - FULL replacement only. Whatever is in the note now is replaced by
+      ``new_content`` in its entirety; there is no in-place/partial edit.
+    - Identity: the change is attributed to this server's shared service
+      account in HedgeDoc's history, never to the person asking in
+      LibreChat.
+    - Permissions are enforced by HedgeDoc, not here: freely notes can be
+      edited by anyone; editable/limited need a logged-in user; locked /
+      private / protected can only be edited by their OWNER. If the
+      service account lacks the right, HedgeDoc sends no explicit
+      refusal -- the tool fails after a timeout with a message saying so.
+    - Concurrency: if someone else is editing at the same time, HedgeDoc
+      transforms the changes together (both survive); if the server
+      forces a resync, this retries automatically.
+    - Returns {note_id, new_revision, verified: true} once the read-back
+      matches, so a verified result is genuinely in the database."""
+    return _update_note(note_id_or_alias, new_content)
 
 
 async def apply_read_only_gate() -> None:

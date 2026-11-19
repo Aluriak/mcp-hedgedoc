@@ -40,6 +40,7 @@ async def test_read_only_mode_lists_only_read_tools():
         "list_history",
     }
     assert "create_note" not in names
+    assert "update_note" not in names
 
 
 @pytest.mark.asyncio
@@ -50,7 +51,16 @@ async def test_read_only_mode_blocks_create_note_at_call_time():
 
 
 @pytest.mark.asyncio
-async def test_rw_mode_lists_all_seven_tools():
+async def test_read_only_mode_blocks_update_note_at_call_time():
+    server_module = await _fresh_server_module(read_only=True)
+    with pytest.raises(NotFoundError):
+        await server_module.mcp.call_tool(
+            "update_note", {"note_id_or_alias": "x", "new_content": "y"}
+        )
+
+
+@pytest.mark.asyncio
+async def test_rw_mode_lists_all_eight_tools():
     server_module = await _fresh_server_module(read_only=False)
     tools = await server_module.mcp.list_tools()
     names = {t.name for t in tools}
@@ -62,4 +72,5 @@ async def test_rw_mode_lists_all_seven_tools():
         "whoami",
         "list_history",
         "create_note",
+        "update_note",
     }

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Connects to a running mcp-hedgedoc instance and checks that the
 read-only gate genuinely holds: only the six read tools are listed, and
-create_note is rejected at call time, not merely hidden.
+create_note / update_note are rejected at call time, not merely hidden.
 
 Usage: python3 mcp_check.py http://127.0.0.1:PORT/mcp
 
@@ -45,6 +45,20 @@ async def check(url: str) -> bool:
                 print(f"OK: create_note correctly rejected ({type(e).__name__})")
             else:
                 print(f"FAIL: create_note failed for the wrong reason: {type(e).__name__}: {e}")
+                ok = False
+
+        try:
+            await client.call_tool(
+                "update_note",
+                {"note_id_or_alias": "smoke-test", "new_content": "x"},
+            )
+            print("FAIL: update_note was callable in read-only mode")
+            ok = False
+        except Exception as e:  # noqa: BLE001 -- any rejection is the point
+            if "Unknown tool" in str(e) or "not found" in str(e).lower():
+                print(f"OK: update_note correctly rejected ({type(e).__name__})")
+            else:
+                print(f"FAIL: update_note failed for the wrong reason: {type(e).__name__}: {e}")
                 ok = False
 
         try:
