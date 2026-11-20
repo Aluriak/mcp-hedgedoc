@@ -172,14 +172,16 @@ class HedgeDocRealtimeClient:
         state: dict = {"doc": None, "resync": False}
 
         @client.event
-        def doc(payload):  # server -> client: initial state, or resync
+        def doc(*args):  # server -> client: initial state, or resync
+            # v2.x émet (payload, message_id) — 1.x émet (payload,) → *args
+            payload = args[0] if args else None
             if state["doc"] is not None:
                 state["resync"] = True
             state["doc"] = payload
             doc_ev.set()
 
         @client.event
-        def ack(revision):  # server -> client: op applied (in memory)
+        def ack(*args):  # server -> client: op applied (in memory)
             ack_ev.set()
 
         url = f"{self._socket_url}/?noteId={self._encode_note_id(note_id)}"
